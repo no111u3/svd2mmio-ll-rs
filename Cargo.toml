@@ -3,5 +3,45 @@ name = "svd2mmio-ll-rs"
 version = "0.1.0"
 authors = ["Boris Vinogradov <no111u3@gmail.com>"]
 edition = "2018"
+categories = [
+    "command-line-utilities",
+    "embedded",
+    "hardware-support",
+    "no-std",
+]
+description = "Rust SVD to Memory Mapped Input Output registers block and tables, Low Level operations"
+keywords = [
+    "svd",
+    "embedded",
+    "register",
+    "map",
+    "generator",
+]
+license = "Apache-2.0"
+repository = "https://github.com/no111u3/svd2mmio-ll-rs"
+readme = "README.md"
+
+[lib]
+name = "svd2mmio_ll_rs"
+path = "src/lib.rs"
 
 [dependencies]
+clap = "2.33"
+structopt = "0.3"
+walkdir = "2.2.9"
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.8"
+dirs = "2.0"
+unicode-normalization = "0.1"
+env_logger = "~0.7"
+inflections = "1.1"
+log = { version = "~0.4", features = ["std"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+anyhow = "1.0.19"
+thiserror = "1.0.5"
+cast = "0.2"
+
+[dependencies.svd-parser]
+version = "0.9"
+features = ["derive-from"]
