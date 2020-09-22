@@ -3,7 +3,7 @@ use svd2mmio_ll_rs::{generate, opt::Opt};
 use structopt::StructOpt;
 
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::process;
 
 use log::{error, info};
@@ -32,9 +32,11 @@ fn run() -> Result<()> {
     info!("device: {}", device.name);
 
     let items = generate::device::render(&device)?;
+    let mut file = File::create("lib.rs").expect("Couldn't create lib.rs file");
 
-    let data = items.to_string().replace("]", "]\n");
-    info!("lib.rs: {}", data);
+    let data = items.to_string().replace("] ", "]\n");
+    file.write_all(&data.as_ref())
+        .expect("Couldn't write code to lib.rs");
 
     Ok(())
 }
