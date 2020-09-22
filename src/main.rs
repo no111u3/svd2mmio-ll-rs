@@ -1,4 +1,4 @@
-use svd2mmio_ll_rs::opt::Opt;
+use svd2mmio_ll_rs::{generate, opt::Opt};
 
 use structopt::StructOpt;
 
@@ -30,6 +30,11 @@ fn run() -> Result<()> {
     let device = svd::parse(svd_xml)?;
 
     info!("device: {}", device.name);
+
+    let items = generate::device::render(&device)?;
+
+    let data = items.to_string().replace("]", "]\n");
+    info!("lib.rs: {}", data);
 
     Ok(())
 }
