@@ -4,11 +4,12 @@ use anyhow::Result;
 use proc_macro2::TokenStream;
 use quote::quote;
 
+use crate::generate::interrupt;
 use crate::util;
 
 use log::info;
 
-pub fn render(d: &Device) -> Result<TokenStream> {
+pub fn render(d: &Device, device_x: &mut String) -> Result<TokenStream> {
     let mut out = TokenStream::new();
 
     let doc = format!(
@@ -72,6 +73,8 @@ pub fn render(d: &Device) -> Result<TokenStream> {
         "CPU {} FPU",
         if fpu_present { "has" } else { "does not have" }
     );
+
+    out.extend(interrupt::render(&d.peripherals, device_x)?);
 
     Ok(out)
 }

@@ -31,12 +31,15 @@ fn run() -> Result<()> {
 
     info!("device: {}", device.name);
 
-    let items = generate::device::render(&device)?;
+    let mut device_x = String::new();
+    let items = generate::device::render(&device, &mut device_x)?;
     let mut file = File::create("lib.rs").expect("Couldn't create lib.rs file");
 
     let data = items.to_string().replace("] ", "]\n");
     file.write_all(&data.as_ref())
         .expect("Couldn't write code to lib.rs");
+
+    writeln!(File::create("device.x")?, "{}", device_x)?;
 
     Ok(())
 }
