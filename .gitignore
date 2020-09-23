@@ -7,3 +7,4 @@
 
 # Ignore generated files in root directory
 /lib.rs
+/device.x
