@@ -1,11 +1,11 @@
 use crate::svd::Device;
 use anyhow::Result;
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 
 use crate::generate::interrupt;
-use crate::util;
+use crate::util::{self, ToSanitizedUpperCase};
 
 use log::info;
 
@@ -121,6 +121,79 @@ pub fn render(d: &Device, device_x: &mut String) -> Result<TokenStream> {
         ///Common register and bit access and modify traits
         pub mod generic {
             #tokens
+        }
+    });
+
+    for p in &d.peripherals {
+        if core_peripherals.contains(&&*p.name.to_uppercase()) {
+            // Core peripherals are handled above
+            continue;
+        }
+
+        if p.registers
+            .as_ref()
+            .map(|v| &v[..])
+            .unwrap_or(&[])
+            .is_empty()
+            && p.derived_from.is_none()
+        {
+            // No register block will be generated so don't put this peripheral
+            // in the `Peripherals` struct
+            continue;
+        }
+
+        let p = p.name.to_sanitized_upper_case();
+        let id = Ident::new(&p, Span::call_site());
+        fields.extend(quote! {
+            #[doc = #p]
+            pub #id: #id,
+        });
+        exprs.extend(quote!(#id: #id { _marker: PhantomData },));
+    }
+
+    let span = Span::call_site();
+
+    let take = Some(Ident::new("cortex_m", span)).map(|krate| {
+        quote! {
+            ///Returns all the peripherals *once*
+            #[inline]
+            pub fn take() -> Option<Self> {
+                #krate::interrupt::free(|_| {
+                    if unsafe { DEVICE_PERIPHERALS } {
+                        None
+                    } else {
+                        Some(unsafe { Peripherals::steal() })
+                    }
+                })
+            }
+        }
+    });
+
+    out.extend(quote! {
+        // NOTE `no_mangle` is used here to prevent linking different minor versions of the device
+        // crate as that would let you `take` the device peripherals more than once (one per minor
+        // version)
+        #[no_mangle]
+        static mut DEVICE_PERIPHERALS: bool = false;
+
+        ///All the peripherals
+        #[allow(non_snake_case)]
+        pub struct Peripherals {
+            #fields
+        }
+
+        impl Peripherals {
+            #take
+
+            ///Unchecked version of `Peripherals::take`
+            #[inline]
+            pub unsafe fn steal() -> Self {
+                DEVICE_PERIPHERALS = true;
+
+                Peripherals {
+                    #exprs
+                }
+            }
         }
     });
 
