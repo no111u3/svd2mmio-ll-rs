@@ -2,7 +2,7 @@ use crate::svd::Device;
 use anyhow::Result;
 
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 
 use crate::generate::interrupt;
 use crate::util;
@@ -75,6 +75,54 @@ pub fn render(d: &Device, device_x: &mut String) -> Result<TokenStream> {
     );
 
     out.extend(interrupt::render(&d.peripherals, device_x)?);
+
+    let core_peripherals: &[_] = if fpu_present {
+        &[
+            "CBP", "CPUID", "DCB", "DWT", "FPB", "FPU", "ITM", "MPU", "NVIC", "SCB", "SYST", "TPIU",
+        ]
+    } else {
+        &[
+            "CBP", "CPUID", "DCB", "DWT", "FPB", "ITM", "MPU", "NVIC", "SCB", "SYST", "TPIU",
+        ]
+    };
+
+    let mut fields = TokenStream::new();
+    let mut exprs = TokenStream::new();
+
+    out.extend(quote! {
+        pub use cortex_m::peripheral::Peripherals as CorePeripherals;
+        #[cfg(feature = "rt")]
+        pub use cortex_m_rt::interrupt;
+        #[cfg(feature = "rt")]
+        pub use self::Interrupt as interrupt;
+    });
+
+    if fpu_present {
+        out.extend(quote! {
+            pub use cortex_m::peripheral::{
+                CBP, CPUID, DCB, DWT, FPB, FPU, ITM, MPU, NVIC, SCB, SYST, TPIU,
+            };
+        });
+    } else {
+        out.extend(quote! {
+            pub use cortex_m::peripheral::{
+                CBP, CPUID, DCB, DWT, FPB, ITM, MPU, NVIC, SCB, SYST, TPIU,
+            };
+        });
+    }
+
+    let generic_file = std::str::from_utf8(include_bytes!("generic.rs"))?;
+
+    let tokens = syn::parse_file(generic_file)?.into_token_stream();
+
+    out.extend(quote! {
+        #[allow(unused_imports)]
+        use generic::*;
+        ///Common register and bit access and modify traits
+        pub mod generic {
+            #tokens
+        }
+    });
 
     Ok(out)
 }
