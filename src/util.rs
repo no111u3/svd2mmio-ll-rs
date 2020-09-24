@@ -135,6 +135,14 @@ impl ToSanitizedSnakeCase for str {
 
 pub trait ToSanitizedUpperCase {
     fn to_sanitized_upper_case(&self) -> Cow<str>;
+
+    fn to_sanitized_upper_case_with_suffix(&self, suffix: &str) -> Cow<str> {
+        let name = self.to_sanitized_upper_case().into_owned();
+
+        let result = name + suffix.to_uppercase().as_str();
+
+        Cow::Owned(result)
+    }
 }
 
 impl ToSanitizedUpperCase for str {

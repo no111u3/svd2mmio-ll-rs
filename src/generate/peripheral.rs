@@ -29,49 +29,30 @@ pub fn render(
     }
 
     let span = Span::call_site();
-    let _name_pc = Ident::new(&p.name.to_sanitized_upper_case(), span);
+    let name_pc = Ident::new(&p.name.to_sanitized_upper_case_with_suffix("_base"), span);
     let address = util::hex(p.base_address as u64);
-    let description = util::respace(p.description.as_ref().unwrap_or(&p.name));
+    let _description = util::respace(p.description.as_ref().unwrap_or(&p.name));
 
-    let name_sc = Ident::new(&p.name.to_sanitized_snake_case(), span);
-    let (derive_regs, _) = if let (Some(df), None) = (p_derivedfrom, &p_original.registers) {
-        (true, Ident::new(&df.name.to_sanitized_snake_case(), span))
+    let name_sc = Ident::new(
+        &p.name.to_sanitized_pascal_case_with_suffix("Registers"),
+        span,
+    );
+    let (derive_regs, base_regs) = if let (Some(df), None) = (p_derivedfrom, &p_original.registers)
+    {
+        (
+            true,
+            Ident::new(
+                &df.name.to_sanitized_pascal_case_with_suffix("Registers"),
+                span,
+            ),
+        )
     } else {
         (false, name_sc.clone())
     };
 
-    let name_pc_regs = Ident::new(
-        &p.name.to_sanitized_pascal_case_with_suffix("Registers"),
-        span,
-    );
-
     // Insert the peripheral structure
     out.extend(quote! {
-        #[doc = #description]
-        #[repl(C)]
-        pub struct #name_pc_regs {}
-
-        unsafe impl Send for #name_pc_regs {}
-
-        impl #name_pc_regs {
-            ///Pointer to the register block
-            pub const PTR: *const #name_pc_regs = #address as *const _;
-
-            ///Return the pointer to the register block
-            #[inline(always)]
-            pub const fn ptr() -> *const #name_pc_regs {
-                Self::PTR
-            }
-        }
-
-        impl Deref for #name_pc_regs {
-            type Target = #name_pc_regs;
-
-            #[inline(always)]
-            fn deref(&self) -> &Self::Target {
-                unsafe { &*Self::PTR }
-            }
-        }
+        pub const #name_pc: *const #base_regs = #address as *const _;
     });
 
     // Derived peripherals may not require re-implementation, and will instead
