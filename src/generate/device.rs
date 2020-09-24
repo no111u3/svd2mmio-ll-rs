@@ -4,7 +4,7 @@ use anyhow::Result;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 
-use crate::generate::interrupt;
+use crate::generate::{interrupt, peripheral};
 use crate::util::{self, ToSanitizedUpperCase};
 
 use log::info;
@@ -130,6 +130,12 @@ pub fn render(d: &Device, device_x: &mut String) -> Result<TokenStream> {
             continue;
         }
 
+        out.extend(peripheral::render(
+            p,
+            &d.peripherals,
+            &d.default_register_properties,
+        )?);
+
         if p.registers
             .as_ref()
             .map(|v| &v[..])
@@ -153,7 +159,7 @@ pub fn render(d: &Device, device_x: &mut String) -> Result<TokenStream> {
 
     let span = Span::call_site();
 
-    let take = Some(Ident::new("cortex_m", span)).map(|krate| {
+    let _take = Some(Ident::new("cortex_m", span)).map(|krate| {
         quote! {
             ///Returns all the peripherals *once*
             #[inline]
@@ -169,7 +175,7 @@ pub fn render(d: &Device, device_x: &mut String) -> Result<TokenStream> {
         }
     });
 
-    out.extend(quote! {
+    /*out.extend(quote! {
         // NOTE `no_mangle` is used here to prevent linking different minor versions of the device
         // crate as that would let you `take` the device peripherals more than once (one per minor
         // version)
@@ -195,7 +201,7 @@ pub fn render(d: &Device, device_x: &mut String) -> Result<TokenStream> {
                 }
             }
         }
-    });
+    });*/
 
     Ok(out)
 }
