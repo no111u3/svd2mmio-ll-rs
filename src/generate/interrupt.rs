@@ -27,7 +27,6 @@ pub fn render(peripherals: &[Peripheral], device_x: &mut String) -> Result<Token
 
     // Current position in the vector table
     let mut pos = 0;
-    let mut mod_items = TokenStream::new();
     for interrupt in &interrupts {
         while pos < interrupt.value {
             elements.extend(quote!(Vector { _reserved: 0 },));
@@ -113,92 +112,6 @@ pub fn render(peripherals: &[Peripheral], device_x: &mut String) -> Result<Token
     };
 
     root.extend(interrupt_enum);
-
-    let abi = "C";
-
-    mod_items.extend(quote! {
-        #[cfg(feature = "rt")]
-        #[macro_export]
-        /// Assigns a handler to an interrupt
-        ///
-        /// This macro takes two arguments: the name of an interrupt and the path to the
-        /// function that will be used as the handler of that interrupt. That function
-        /// must have signature `fn()`.
-        ///
-        /// Optionally, a third argument may be used to declare interrupt local data.
-        /// The handler will have exclusive access to these *local* variables on each
-        /// invocation. If the third argument is used then the signature of the handler
-        /// function must be `fn(&mut $NAME::Locals)` where `$NAME` is the first argument
-        /// passed to the macro.
-        ///
-        /// # Example
-        ///
-        /// ``` ignore
-        /// interrupt!(TIM2, periodic);
-        ///
-        /// fn periodic() {
-        ///     print!(".");
-        /// }
-        ///
-        /// interrupt!(TIM3, tick, locals: {
-        ///     tick: bool = false;
-        /// });
-        ///
-        /// fn tick(locals: &mut TIM3::Locals) {
-        ///     locals.tick = !locals.tick;
-        ///
-        ///     if locals.tick {
-        ///         println!("Tick");
-        ///     } else {
-        ///         println!("Tock");
-        ///     }
-        /// }
-        /// ```
-        macro_rules! interrupt {
-            ($NAME:ident, $path:path, locals: {
-                $($lvar:ident:$lty:ty = $lval:expr;)*
-            }) => {
-                #[allow(non_snake_case)]
-                mod $NAME {
-                    pub struct Locals {
-                        $(
-                            pub $lvar: $lty,
-                        )*
-                    }
-                }
-
-                #[allow(non_snake_case)]
-                #[no_mangle]
-                pub extern #abi fn $NAME() {
-                    // check that the handler exists
-                    let _ = $crate::interrupt::Interrupt::$NAME;
-
-                    static mut LOCALS: self::$NAME::Locals =
-                        self::$NAME::Locals {
-                            $(
-                                $lvar: $lval,
-                            )*
-                        };
-
-                    // type checking
-                    let f: fn(&mut self::$NAME::Locals) = $path;
-                    f(unsafe { &mut LOCALS });
-                }
-            };
-            ($NAME:ident, $path:path) => {
-                #[allow(non_snake_case)]
-                #[no_mangle]
-                pub extern #abi fn $NAME() {
-                    // check that the handler exists
-                    let _ = $crate::interrupt::Interrupt::$NAME;
-
-                    // type checking
-                    let f: fn() = $path;
-                    f();
-                }
-            }
-        }
-    });
 
     Ok(root)
 }
