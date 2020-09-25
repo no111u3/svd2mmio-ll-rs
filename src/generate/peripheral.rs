@@ -33,10 +33,7 @@ pub fn render(
     let address = util::hex(p.base_address as u64);
     let _description = util::respace(p.description.as_ref().unwrap_or(&p.name));
 
-    let name_sc = Ident::new(
-        &p.name.to_sanitized_pascal_case_with_suffix("Registers"),
-        span,
-    );
+    let _name_sc = Ident::new(&p.name.to_sanitized_snake_case(), span);
     let (derive_regs, base_regs) = if let (Some(df), None) = (p_derivedfrom, &p_original.registers)
     {
         (
@@ -47,7 +44,13 @@ pub fn render(
             ),
         )
     } else {
-        (false, name_sc.clone())
+        (
+            false,
+            Ident::new(
+                &p.name.to_sanitized_pascal_case_with_suffix("Registers"),
+                span,
+            ),
+        )
     };
 
     // Insert the peripheral structure

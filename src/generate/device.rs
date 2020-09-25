@@ -86,9 +86,6 @@ pub fn render(d: &Device, device_x: &mut String) -> Result<TokenStream> {
         ]
     };
 
-    let mut fields = TokenStream::new();
-    let mut exprs = TokenStream::new();
-
     out.extend(quote! {
         pub use cortex_m::peripheral::Peripherals as CorePeripherals;
         #[cfg(feature = "rt")]
@@ -147,61 +144,7 @@ pub fn render(d: &Device, device_x: &mut String) -> Result<TokenStream> {
             // in the `Peripherals` struct
             continue;
         }
-
-        let p = p.name.to_sanitized_upper_case();
-        let id = Ident::new(&p, Span::call_site());
-        fields.extend(quote! {
-            #[doc = #p]
-            pub #id: #id,
-        });
-        exprs.extend(quote!(#id: #id { _marker: PhantomData },));
     }
-
-    let span = Span::call_site();
-
-    let _take = Some(Ident::new("cortex_m", span)).map(|krate| {
-        quote! {
-            ///Returns all the peripherals *once*
-            #[inline]
-            pub fn take() -> Option<Self> {
-                #krate::interrupt::free(|_| {
-                    if unsafe { DEVICE_PERIPHERALS } {
-                        None
-                    } else {
-                        Some(unsafe { Peripherals::steal() })
-                    }
-                })
-            }
-        }
-    });
-
-    /*out.extend(quote! {
-        // NOTE `no_mangle` is used here to prevent linking different minor versions of the device
-        // crate as that would let you `take` the device peripherals more than once (one per minor
-        // version)
-        #[no_mangle]
-        static mut DEVICE_PERIPHERALS: bool = false;
-
-        ///All the peripherals
-        #[allow(non_snake_case)]
-        pub struct Peripherals {
-            #fields
-        }
-
-        impl Peripherals {
-            #take
-
-            ///Unchecked version of `Peripherals::take`
-            #[inline]
-            pub unsafe fn steal() -> Self {
-                DEVICE_PERIPHERALS = true;
-
-                Peripherals {
-                    #exprs
-                }
-            }
-        }
-    });*/
 
     Ok(out)
 }
