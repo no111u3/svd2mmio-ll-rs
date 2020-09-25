@@ -1,3 +1,4 @@
+use crate::svd::{Cluster, Register, RegisterCluster};
 use inflections::Inflect;
 use proc_macro2::{Literal, TokenStream};
 use quote::ToTokens;
@@ -210,4 +211,28 @@ pub fn hex(n: u64) -> TokenStream {
     )
     .unwrap()
     .into_token_stream()
+}
+
+/// Return only the clusters from the slice of either register or clusters.
+pub fn only_clusters(ercs: &[RegisterCluster]) -> Vec<&Cluster> {
+    let clusters: Vec<&Cluster> = ercs
+        .iter()
+        .filter_map(|x| match x {
+            RegisterCluster::Cluster(x) => Some(x),
+            _ => None,
+        })
+        .collect();
+    clusters
+}
+
+/// Return only the registers the given slice of either register or clusters.
+pub fn only_registers(ercs: &[RegisterCluster]) -> Vec<&Register> {
+    let registers: Vec<&Register> = ercs
+        .iter()
+        .filter_map(|x| match x {
+            RegisterCluster::Register(x) => Some(x),
+            _ => None,
+        })
+        .collect();
+    registers
 }
