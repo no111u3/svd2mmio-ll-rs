@@ -1,13 +1,18 @@
-use crate::svd::Device;
+use crate::svd::{derive_from::DeriveFrom, Device};
 use anyhow::Result;
 
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 
-use crate::generate::{interrupt, peripheral};
-use crate::util::{self, ToSanitizedUpperCase};
+use crate::generate::{
+    interrupt,
+    peripheral::{self, PeripheralRendered},
+};
+use crate::util::{self, ToSanitizedSnakeCase};
 
 use log::info;
+
+use std::collections::HashMap;
 
 pub fn render(d: &Device, device_x: &mut String) -> Result<TokenStream> {
     let mut out = TokenStream::new();
@@ -121,17 +126,41 @@ pub fn render(d: &Device, device_x: &mut String) -> Result<TokenStream> {
         }
     });
 
+    let mut peripherals: HashMap<String, PeripheralRendered> = HashMap::new();
+
     for p in &d.peripherals {
         if core_peripherals.contains(&&*p.name.to_uppercase()) {
             // Core peripherals are handled above
             continue;
         }
 
-        out.extend(peripheral::render(
-            p,
-            &d.peripherals,
-            &d.default_register_properties,
-        )?);
+        let p_derivedfrom = p
+            .derived_from
+            .as_ref()
+            .and_then(|s| d.peripherals.iter().find(|x| x.name == *s));
+        let p_merged = p_derivedfrom.map(|ancestor| p.derive_from(ancestor));
+        let p = p_merged.as_ref().unwrap_or(p);
+
+        if let (Some(df), None) = (p.derived_from.as_ref(), &p_derivedfrom) {
+            eprintln!(
+                "Couldn't find derivedFrom original: {} for {}, skipping",
+                df, p.name
+            );
+            return Ok(out);
+        }
+
+        let peripheral = peripheral::render(p, &d.peripherals, &d.default_register_properties)?;
+        if let Some(peripheral_old) = peripherals.get_mut(&peripheral.namespace) {
+            let PeripheralRendered {
+                registers,
+                address,
+                namespace: _,
+            } = peripheral;
+            peripheral_old.registers.extend(registers);
+            peripheral_old.address.extend(address);
+        } else {
+            peripherals.insert(peripheral.namespace.clone(), peripheral);
+        }
 
         if p.registers
             .as_ref()
@@ -144,6 +173,28 @@ pub fn render(d: &Device, device_x: &mut String) -> Result<TokenStream> {
             // in the `Peripherals` struct
             continue;
         }
+    }
+
+    let span = Span::call_site();
+
+    for (
+        _,
+        PeripheralRendered {
+            registers,
+            address,
+            namespace,
+        },
+    ) in peripherals
+    {
+        let name_sc = Ident::new(&namespace.to_sanitized_snake_case(), span);
+
+        out.extend(quote! {
+            pub mod #name_sc {
+                #registers
+
+                #address
+            }
+        })
     }
 
     Ok(out)
